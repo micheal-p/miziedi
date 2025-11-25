@@ -1,0 +1,17 @@
+{
+    "name": "miziedi/ecommerce",
+    "description": "Miziedi PHP + MongoDB E-commerce Platform",
+    "type": "project",
+   "require": {
+    "mongodb/mongodb": "^2.0.0",
+    "vlucas/phpdotenv": "^5.5"
+},
+    "autoload": {
+        "psr-4": {
+            "Miziedi\\": "src/"
+        }
+    },
+    "config": {
+        "optimize-autoloader": true
+    }
+}

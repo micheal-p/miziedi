@@ -1,0 +1,6 @@
+RewriteEngine On
+# Redirect the root url to the public folder
+RewriteRule ^$ public/ [L]
+
+# Redirect everything else to the public folder
+RewriteRule (.*) public/$1 [L]
