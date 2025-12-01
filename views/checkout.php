@@ -1,19 +1,22 @@
 <?php
-// Fetch Settings for Fee Display
-$db = Database::getInstance()->getDb();
-$settings = $db->settings->findOne(['type' => 'general']);
+// 1. Fetch Settings for Fee Display (MYSQL FIX)
+$pdo = \Database::getInstance()->getPdo();
+$stmt = $pdo->prepare("SELECT * FROM settings WHERE type = 'general'");
+$stmt->execute();
+$settings = $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
+
 $deliveryFee = $settings['delivery_fee'] ?? 10000;
 $taxLabel = $settings['tax_label'] ?? 'TBD';
 
-// Calculate Subtotal (FIXED LOGIC)
+// 2. Calculate Subtotal
 $subtotal = 0;
 if(isset($_SESSION['cart'])) {
     $pModel = new \Miziedi\Models\Product();
     
     foreach($_SESSION['cart'] as $key => $qty) {
-        // FIX: Split the key to get the real Product ID (ignoring the size suffix)
+        // Split key to get Product ID
         $parts = explode('_', $key);
-        $id = $parts[0]; // "64f..." instead of "64f..._L"
+        $id = $parts[0];
         
         $p = $pModel->getById($id);
         if($p) {
@@ -22,10 +25,10 @@ if(isset($_SESSION['cart'])) {
     }
 }
 
-// Calculate Final Total
+// 3. Calculate Final Total
 $total = $subtotal + $deliveryFee;
 
-// Redirect if empty (Security)
+// Redirect if empty
 if($subtotal <= 0) {
     header('Location: /cart');
     exit;
@@ -48,7 +51,7 @@ if($subtotal <= 0) {
             </div>
             <div style="display: flex; justify-content: space-between; margin-bottom: 10px; color: #666;">
                 <span>Estimated Tax</span>
-                <span><?= $taxLabel ?></span>
+                <span><?= htmlspecialchars($taxLabel) ?></span>
             </div>
             <div style="display: flex; justify-content: space-between; font-weight: 800; font-size: 1.3rem; margin-top: 15px; padding-top: 15px; border-top: 1px dashed #ccc;">
                 <span>Total to Pay</span>
