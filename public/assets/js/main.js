@@ -5,18 +5,87 @@ let showcaseInterval;
 let isPaused = false;
 
 // ==========================================
-// UI HELPERS
+// BACKGROUND MUSIC LOGIC
 // ==========================================
+window.toggleMusic = function() {
+    const audio = document.getElementById('bg-music');
+    const onIcon = document.getElementById('music-icon-on');
+    const offIcon = document.getElementById('music-icon-off');
 
-// Toggle Mobile Menu
-function toggleMenu() {
-    const menu = document.getElementById('mobile-menu');
-    menu.classList.toggle('active');
-    document.body.style.overflow = menu.classList.contains('active') ? 'hidden' : 'auto';
+    if (audio.paused) {
+        audio.play();
+        localStorage.setItem('musicPlaying', 'true');
+        if(onIcon) onIcon.style.display = 'block';
+        if(offIcon) offIcon.style.display = 'none';
+    } else {
+        audio.pause();
+        localStorage.setItem('musicPlaying', 'false');
+        if(onIcon) onIcon.style.display = 'none';
+        if(offIcon) offIcon.style.display = 'block';
+    }
+};
+
+function initMusic() {
+    const audio = document.getElementById('bg-music');
+    if (!audio) return;
+
+    // 1. Recover saved timestamp
+    const savedTime = localStorage.getItem('bgMusicTime');
+    if (savedTime) {
+        audio.currentTime = parseFloat(savedTime);
+    }
+
+    // 2. Check if user previously paused it. If undefined, default to Play ('true')
+    const shouldPlay = localStorage.getItem('musicPlaying');
+
+    if (shouldPlay !== 'false') {
+        // 3. Attempt Auto-Play
+        const playPromise = audio.play();
+        
+        if (playPromise !== undefined) {
+            playPromise.catch(error => {
+                // Browser prevented auto-play. Wait for ANY user interaction.
+                console.log("Auto-play blocked. Waiting for interaction.");
+                const startAudio = () => {
+                    audio.play();
+                    // Update icons
+                    document.getElementById('music-icon-on').style.display = 'block';
+                    document.getElementById('music-icon-off').style.display = 'none';
+                    // Remove listener so it doesn't fire again
+                    document.removeEventListener('click', startAudio);
+                    document.removeEventListener('scroll', startAudio);
+                };
+                // Listen for first interaction
+                document.addEventListener('click', startAudio);
+                document.addEventListener('scroll', startAudio);
+            });
+        }
+    } else {
+        // User manually paused previously, so show "Off" icon
+        document.getElementById('music-icon-on').style.display = 'none';
+        document.getElementById('music-icon-off').style.display = 'block';
+    }
+
+    // 4. Save timestamp continuously (every 1s) so reload works
+    setInterval(() => {
+        if (!audio.paused) {
+            localStorage.setItem('bgMusicTime', audio.currentTime);
+        }
+    }, 1000);
 }
 
-// Toggle Search Bar
-function toggleSearch() {
+// ==========================================
+// UI HELPERS (Attached to window for Global Access)
+// ==========================================
+window.toggleMenu = function() {
+    const menu = document.getElementById('mobile-menu');
+    if (!menu) return;
+    
+    menu.classList.toggle('active');
+    document.body.style.overflow = menu.classList.contains('active') ? 'hidden' : 'auto';
+};
+
+window.toggleSearch = function() {
     const searchBar = document.getElementById('search-bar');
     if (searchBar) {
         searchBar.classList.toggle('active');
@@ -25,77 +94,76 @@ function toggleSearch() {
             if (input) input.focus();
         }
     }
-}
+};
 
 // ==========================================
-// SHOWCASE & SLIDER LOGIC
+// SHOWCASE & VIDEO LOGIC
 // ==========================================
-
-// Auto-Scroll for Showcase
 function startShowcaseScroll() {
     const showcaseGrid = document.getElementById('showcaseGrid');
     if (showcaseInterval) clearInterval(showcaseInterval);
 
-    // Only auto-scroll on mobile screens
-    if (showcaseGrid && window.innerWidth < 768) { 
-        showcaseInterval = setInterval(() => {
-            if (!isPaused) {
-                const scrollAmount = window.innerWidth;
-                const maxScroll = showcaseGrid.scrollWidth - showcaseGrid.clientWidth;
-                
-                if (showcaseGrid.scrollLeft + scrollAmount >= maxScroll) {
-                    showcaseGrid.scrollTo({ left: 0, behavior: 'smooth' });
-                } else {
-                    showcaseGrid.scrollBy({ left: scrollAmount, behavior: 'smooth' });
-                }
-            }
-        }, 4000);
+    if (showcaseGrid && window.innerWidth < 768) {
+        const videos = document.querySelectorAll('.product-showcase video');
+        if (videos.length > 0) {
+            videos.forEach(video => {
+                video.playsInline = true;
+                video.loop = false; 
+                video.play().catch(() => {});
+                video.addEventListener('ended', () => {
+                    if (!isPaused) {
+                        scrollShowcase(1);
+                        setTimeout(() => {
+                            video.currentTime = 0;
+                            video.play();
+                        }, 1000);
+                    }
+                });
+            });
+        } else {
+            showcaseInterval = setInterval(() => {
+                if (!isPaused) scrollShowcase(1);
+            }, 4000);
+        }
     }
 }
 
-// Manual Scroll (Arrows)
 function scrollShowcase(direction) {
     const grid = document.getElementById('showcaseGrid');
     if (grid) {
-        const scrollAmount = window.innerWidth; 
+        const scrollAmount = window.innerWidth;
         grid.scrollBy({ left: direction * scrollAmount, behavior: 'smooth' });
     }
 }
 
-// Toggle Play/Pause
-function toggleShowcaseState() {
+window.toggleShowcaseState = function() {
     isPaused = !isPaused;
     const pauseIcon = document.getElementById('icon-pause');
     const playIcon = document.getElementById('icon-play');
     const videos = document.querySelectorAll('.product-showcase video');
 
     if (isPaused) {
-        pauseIcon.style.display = 'none';
-        playIcon.style.display = 'block';
+        if (pauseIcon) pauseIcon.style.display = 'none';
+        if (playIcon) playIcon.style.display = 'block';
         videos.forEach(v => v.pause());
         clearInterval(showcaseInterval);
     } else {
-        pauseIcon.style.display = 'block';
-        playIcon.style.display = 'none';
+        if (pauseIcon) pauseIcon.style.display = 'block';
+        if (playIcon) playIcon.style.display = 'none';
         videos.forEach(v => v.play());
         startShowcaseScroll();
     }
-}
+};
 
 // ==========================================
-// CART LOGIC (AJAX)
+// CART LOGIC
 // ==========================================
-
-// Update Quantity (Cart Page)
-async function updateCartQty(cartKey, productId, change, currentQty) {
-    if (currentQty + change < 1) return; 
-
+window.updateCartQty = async function(cartKey, productId, change, currentQty) {
+    if (currentQty + change < 1) return;
     const formData = new FormData();
     formData.append('product_id', productId);
-    
     const parts = cartKey.split('_');
-    if(parts[1]) formData.append('size', parts[1]);
-    
+    if (parts[1]) formData.append('size', parts[1]);
     formData.append('quantity', change);
 
     try {
@@ -105,42 +173,37 @@ async function updateCartQty(cartKey, productId, change, currentQty) {
             headers: { 'X-Requested-With': 'XMLHttpRequest' }
         });
         const data = await res.json();
-        
         if (data.status === 'success') {
-            // Update UI Elements by ID
-            const qtyDisplay = document.getElementById('qty-display-' + cartKey);
-            if (qtyDisplay) qtyDisplay.innerText = data.newQty;
-
-            const priceDisplay = document.getElementById('price-display-' + cartKey);
-            if (priceDisplay) priceDisplay.innerText = '₦' + data.itemTotal;
-
-            const subtotalDisplay = document.getElementById('cart-subtotal');
-            if (subtotalDisplay) subtotalDisplay.innerText = '₦' + data.globalSubtotal;
-
+            const qtyEl = document.getElementById('qty-display-' + cartKey);
+            if (qtyEl) qtyEl.innerText = data.newQty;
+            const priceEl = document.getElementById('price-display-' + cartKey);
+            if (priceEl) priceEl.innerText = '₦' + data.itemTotal;
+            const subtotalEl = document.getElementById('cart-subtotal');
+            if (subtotalEl) subtotalEl.innerText = '₦' + data.globalSubtotal;
             const badge = document.getElementById('cart-count');
             if (badge) {
                 badge.innerText = data.cartCount;
                 badge.style.display = 'flex';
             }
-
-            // Update onclick to prevent stale numbers
             const btnMinus = document.getElementById('btn-minus-' + cartKey);
             const btnPlus = document.getElementById('btn-plus-' + cartKey);
-            
-            if(btnMinus) btnMinus.setAttribute('onclick', `updateCartQty('${cartKey}', '${productId}', -1, ${data.newQty})`);
-            if(btnPlus) btnPlus.setAttribute('onclick', `updateCartQty('${cartKey}', '${productId}', 1, ${data.newQty})`);
+            if (btnMinus) btnMinus.setAttribute('onclick', `updateCartQty('${cartKey}', '${productId}', -1, ${data.newQty})`);
+            if (btnPlus) btnPlus.setAttribute('onclick', `updateCartQty('${cartKey}', '${productId}', 1, ${data.newQty})`);
         }
     } catch (e) {
         console.error(e);
     }
-}
+};
 
 // ==========================================
-// INITIALIZATION & EVENT LISTENERS
+// INIT & LISTENERS
 // ==========================================
 document.addEventListener('DOMContentLoaded', () => {
     
-    // 1. Hero Slider Animation
+    // Initialize Music
+    initMusic();
+
+    // Hero Slider
     const slides = document.querySelectorAll('.marquee-slide');
     if (slides.length > 1) {
         let currentSlide = 0;
@@ -151,19 +214,15 @@ document.addEventListener('DOMContentLoaded', () => {
         }, 5000);
     }
 
-    // 2. Start Showcase
     startShowcaseScroll();
 
-    // 3. Handle Add to Cart Forms
+    // Handle Add to Cart Forms
     const forms = document.querySelectorAll('form[action="/cart/add"]');
     forms.forEach(form => {
         form.addEventListener('submit', async (e) => {
             e.preventDefault();
             const btn = form.querySelector('button[type="submit"]');
-            
-            // CORRECTION: Just disable click, don't change text
-            btn.disabled = true;
-            
+            if (btn) btn.disabled = true;
             const formData = new FormData(form);
 
             try {
@@ -175,12 +234,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 const data = await res.json();
 
                 if (data.status === 'success') {
-                    // Logic: If it's the main Product Page form, redirect to Cart
                     if (form.classList.contains('add-cart-form')) {
                         window.location.href = '/cart';
-                    } 
-                    // Logic: If it's a quick add (homepage), turn GREEN
-                    else {
+                    } else {
                         const badge = document.getElementById('cart-count');
                         if (badge) {
                             badge.innerText = data.cartCount;
@@ -188,20 +244,18 @@ document.addEventListener('DOMContentLoaded', () => {
                             badge.style.transform = 'scale(1.5)';
                             setTimeout(() => badge.style.transform = 'scale(1)', 200);
                         }
-                        
-                        // CORRECTION: Turn Green Class ON
-                        btn.classList.add('btn-success');
-                        
-                        // Revert after 2 seconds
-                        setTimeout(() => {
-                            btn.classList.remove('btn-success');
-                            btn.disabled = false;
-                        }, 2000);
+                        if (btn) {
+                            btn.classList.add('btn-success');
+                            setTimeout(() => {
+                                btn.classList.remove('btn-success');
+                                btn.disabled = false;
+                            }, 2000);
+                        }
                     }
                 }
             } catch (err) {
                 console.error('Cart Error', err);
-                btn.disabled = false; // Re-enable on error
+                if (btn) btn.disabled = false;
             }
         });
     });
