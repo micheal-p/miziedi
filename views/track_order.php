@@ -9,11 +9,13 @@ if ($invoice) {
     if (!$order) $error = "Order with invoice #$invoice not found.";
 }
 
-// 2. Fetch Settings
-$db = Database::getInstance()->getDb();
-$settings = $db->settings->findOne(['type' => 'general']);
+// 2. Fetch Settings (FIXED FOR MYSQL)
+$pdo = \Database::getInstance()->getPdo();
+$stmt = $pdo->prepare("SELECT * FROM settings WHERE type = 'general'");
+$stmt->execute();
+$settings = $stmt->fetch(PDO::FETCH_ASSOC);
 
-// 3. Data Normalization (Fix for Undefined Keys)
+// 3. Data Normalization
 if ($order) {
     // Recalculate Subtotal if missing
     $subtotal = $order['subtotal'] ?? 0;
@@ -55,7 +57,9 @@ if ($order) {
                 <h3 style="margin: 0; font-family: var(--font-primary);">
                     Status: <span style="color: var(--black); text-transform: uppercase;"><?= str_replace('_', ' ', $order['status']) ?></span>
                 </h3>
-                <span style="font-size: 0.9rem; color: #666;"><?= $order['created_at']->toDateTime()->format('M d, H:i') ?></span>
+                <span style="font-size: 0.9rem; color: #666;">
+                    Updated: <?= $order['created_at']->format('M d, H:i') ?>
+                </span>
             </div>
 
             <?php 
@@ -72,15 +76,15 @@ if ($order) {
                         $isCompleted = $passed && !$isCurrent;
                         
                         // Colors
-                        $dotColor = '#ccc'; // Future = Grey
+                        $dotColor = '#ccc'; // Future
                         $textColor = '#999';
                         
                         if ($isCompleted) {
-                            $dotColor = '#2ecc71'; // Completed = Green
+                            $dotColor = '#2ecc71'; // Completed (Green)
                             $textColor = '#2ecc71';
                         } elseif ($isCurrent) {
-                            $dotColor = '#2ecc71'; // Current = Green
-                            $textColor = '#000'; // Text = Black
+                            $dotColor = '#2ecc71'; // Current (Green)
+                            $textColor = '#000';   // Text Black
                             $passed = false; 
                         } else {
                             $passed = false;
@@ -115,7 +119,7 @@ if ($order) {
 
             <div class="inv-title-bar">
                 <div class="left">INVOICE NO. <?= htmlspecialchars($order['invoice_number']) ?></div>
-                <div class="right">DATE <?= $order['created_at']->toDateTime()->format('d/m/Y') ?></div>
+                <div class="right">DATE <?= $order['created_at']->format('d/m/Y') ?></div>
             </div>
 
             <div class="inv-address-grid">
@@ -125,10 +129,12 @@ if ($order) {
                     <p><?= htmlspecialchars($order['customer']['email']) ?></p>
                     <p><?= htmlspecialchars($order['customer']['phone']) ?></p>
                 </div>
+                
                 <div class="col">
                     <strong>SHIP TO</strong>
                     <p><?= htmlspecialchars($order['customer']['address']) ?></p>
                 </div>
+                
                 <div class="col instructions">
                     <strong>SUMMARY</strong>
                     <p>Status: <span style="text-transform: uppercase; font-weight: bold;"><?= str_replace('_', ' ', $order['status']) ?></span></p>
@@ -187,17 +193,13 @@ if ($order) {
 
 <style>
     /* --- TRACKING PAGE RESPONSIVE STYLES --- */
-    
-    /* Form Styles */
     .track-form { display: inline-flex; gap: 10px; margin-top: 15px; }
     .track-input { padding: 10px 20px; border-radius: 30px; border: 1px solid #ccc; width: 250px; }
     .track-btn { padding: 10px 25px; font-size: 0.9rem; }
 
-    /* Status Card */
     .status-card { margin-bottom: 50px; padding: 30px; background: #f9f9f9; border-radius: 20px; }
     .status-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 10px; }
 
-    /* Timeline */
     .timeline-wrapper { display: flex; justify-content: space-between; position: relative; margin-top: 30px; }
     .timeline-line { position: absolute; top: 10px; left: 0; width: 100%; height: 3px; background: #e0e0e0; z-index: 0; }
     .timeline-item { position: relative; z-index: 1; text-align: center; flex: 1; }
@@ -227,22 +229,14 @@ if ($order) {
     .total-row.final { border-top: 1px solid #333; font-weight: bold; font-size: 14px; margin-top: 10px; padding-top: 10px; }
     .inv-footer { text-align: center; margin-top: 50px; font-size: 10px; color: #999; }
     
-    /* --- MOBILE RESPONSIVE OVERRIDES --- */
     @media (max-width: 768px) {
-        /* Search */
         .track-form { flex-direction: column; width: 100%; }
         .track-input { width: 100%; box-sizing: border-box; }
         .track-btn { width: 100%; }
-
-        /* Status Header */
         .status-header { flex-direction: column; align-items: flex-start; }
-        
-        /* Timeline Scaling */
         .timeline-text { font-size: 0.55rem; margin-top: 5px; }
         .timeline-dot { width: 16px; height: 16px; border-width: 3px; margin-bottom: 5px; }
-        .timeline-line { top: 7px; } /* Adjust line to match smaller dots */
-        
-        /* Invoice Mobile Scroll */
+        .timeline-line { top: 7px; }
         #invoice-doc { overflow-x: auto; }
     }
 </style>
