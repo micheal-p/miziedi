@@ -15,7 +15,7 @@ class PageController {
         view('pages/simple_page', [
             'pageTitle' => 'Our Story',
             'heading' => 'The Miziedi Story',
-            'content' => 'Founded in 2025, Miziedi was born from a passion for the outdoors and premium fashion. We believe in gear that looks good in the city and performs on the mountain.'
+            'content' => 'Founded in 2023, Miziedi was born from a passion for the outdoors and premium fashion. We believe in gear that looks good in the city and performs on the mountain.'
         ]);
     }
 
