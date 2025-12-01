@@ -2,7 +2,7 @@
     
     <div style="margin-bottom: 40px; text-align: center;">
         <h1 style="font-family: var(--font-primary); font-size: 2.5rem; text-transform: uppercase;">
-            <?= htmlspecialchars(ucfirst($_GET['category'] ?? 'All Products')) ?>
+            <?= htmlspecialchars($pageTitle ?? 'All Products') ?>
         </h1>
         <p style="color: #666;"><?= count($products) ?> items found</p>
     </div>
@@ -19,6 +19,7 @@
                     $id = (string)$product['_id'];
                     $title = $product['name'] ?? $product['title'] ?? 'Untitled';
                     $price = $product['price'] ?? 0;
+                    // Ensure correct image path
                     $img = $product['image_url'] ?? $product['image'] ?? '/assets/images/PLACEHOLDER.jpg';
                 ?>
                 <div class="product-card">
