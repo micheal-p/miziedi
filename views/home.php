@@ -1,6 +1,6 @@
 <section class="hero-marquee">
     <div class="marquee-slide active">
-        <img src="https://images.unsplash.com/photo-1483985988355-763728e1935b?w=1920&h=1080&fit=crop" alt="Fashion">
+        <img src="https://res.cloudinary.com/imaga/image/upload/c_fill,w_600,h_600/v1764337842/IMG_2845_mfhrdn.jpg" alt="Fashion">
         <div class="hero-overlay"></div>
         <div class="marquee-content">
             <h1>NEW SEASON ARRIVALS</h1>
@@ -9,7 +9,7 @@
         </div>
     </div>
     <div class="marquee-slide">
-        <img src="https://images.unsplash.com/photo-1523381294911-8d3cead13475?w=1920&h=1080&fit=crop" alt="Men">
+        <img src="https://res.cloudinary.com/imaga/image/upload/v1764503426/IMG_2729_vzubdl.jpg" alt="Men">
         <div class="hero-overlay"></div>
         <div class="marquee-content">
             <h1>MEN'S COLLECTION</h1>
@@ -18,7 +18,7 @@
         </div>
     </div>
     <div class="marquee-slide">
-        <img src="https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=1920&h=1080&fit=crop" alt="Women">
+        <img src="https://res.cloudinary.com/imaga/image/upload/v1764336192/IMG_2773_cq77y3.jpg" alt="Women">
         <div class="hero-overlay"></div>
         <div class="marquee-content">
             <h1>WOMEN'S EXCLUSIVES</h1>
@@ -31,14 +31,13 @@
 <section class="featured-categories">
     <div class="container">
         <h2>Shop by Category</h2>
-        
         <div class="category-grid">
             <?php foreach($categories as $cat): ?>
                 <?php
                     // Default images based on slug
-                    $bgImage = 'https://images.unsplash.com/photo-1523779105320-d1cd346ff52b?w=800&h=1000&fit=crop';
-                    if($cat['slug'] == 'men') $bgImage = 'https://images.unsplash.com/photo-1617127365659-c47fa864d8bc?w=800&h=1000&fit=crop';
-                    if($cat['slug'] == 'women') $bgImage = 'https://images.unsplash.com/photo-1594633312681-425c7b97ccd1?w=800&h=1000&fit=crop';
+                    $bgImage = 'https://res.cloudinary.com/imaga/image/upload/v1764339929/IMG_2858_nlas73.jpg';
+                    if($cat['slug'] == 'men') $bgImage = 'https://res.cloudinary.com/imaga/image/upload/c_fill,w_800,h_1000/v1764335966/IMG_2889_zv5igz.jpg';
+                    if($cat['slug'] == 'women') $bgImage = 'https://res.cloudinary.com/imaga/image/upload/c_fill,w_800,h_1000/v1764334252/IMG_2869_kvowtd.jpg';
                 ?>
                 <a href="/?category=<?= $cat['slug'] ?>" class="category-card">
                     <img src="<?= $bgImage ?>" alt="<?= htmlspecialchars($cat['name']) ?>">
@@ -68,19 +67,19 @@
         <button class="showcase-nav showcase-next" onclick="scrollShowcase(1)">&#10095;</button>
 
         <div class="showcase-grid" id="showcaseGrid">
-            <a href="#" class="showcase-item">
+            <a href="#shop" class="showcase-item">
                 <div class="showcase-image">
-                    <img src="https://images.unsplash.com/photo-1551028719-00167b16eac5?w=800&h=1000&fit=crop" loading="lazy">
+                    <img src="https://res.cloudinary.com/imaga/image/upload/v1764339502/IMG_1162_yuzy7s.jpg" loading="lazy">
                 </div>
                 <div class="showcase-overlay">
                     <h3 class="showcase-title">HYDRENALITE™</h3>
                 </div>
             </a>
             <div class="showcase-item showcase-video-item">
-                <a href="#" class="showcase-link">
+                <a href="#shop" class="showcase-link">
                     <div class="showcase-video">
                         <video autoplay muted loop playsinline>
-                            <source src="https://videos.pexels.com/video-files/3205915/3205915-hd_1920_1080_25fps.mp4" type="video/mp4">
+                            <source src="https://res.cloudinary.com/imaga/video/upload/v1764339118/IMG_2896_w8tkq3.mov" type="video/mp4">
                         </video>
                     </div>
                     <div class="showcase-overlay">
@@ -88,9 +87,9 @@
                     </div>
                 </a>
             </div>
-            <a href="#" class="showcase-item">
+            <a href="#shop" class="showcase-item">
                 <div class="showcase-image">
-                    <img src="https://images.unsplash.com/photo-1591047139829-d91aecb6caea?w=800&h=1000&fit=crop" loading="lazy">
+                    <img src="https://res.cloudinary.com/imaga/video/upload/v1764368460/IMG_2464_teipo6.mp4" loading="lazy">
                 </div>
                 <div class="showcase-overlay">
                     <h3 class="showcase-title">URBAN</h3>
@@ -115,8 +114,7 @@
                         $id = (string)$product['_id'];
                         $title = $product['name'] ?? $product['title'] ?? 'Untitled';
                         $price = $product['price'] ?? 0;
-                        
-                        // Uses normalized Image Path
+                        // Normalized Image Path
                         $img = $product['image_url'] ?? $product['image'] ?? '/assets/images/PLACEHOLDER.jpg';
                     ?>
                     <div class="product-card">
