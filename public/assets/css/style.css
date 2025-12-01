@@ -88,6 +88,14 @@ img, video, svg {
 }
 .btn-block { width: 100%; display: block; }
 
+/* Success State for Add Button */
+.btn-success {
+    background-color: #27ae60 !important; /* Green */
+    border-color: #27ae60 !important;
+    color: white !important;
+    transition: background-color 0.3s ease;
+}
+
 /* Inputs & Selects */
 input[type="text"],
 input[type="email"],
@@ -449,7 +457,10 @@ input[type="checkbox"] { width: 20px; height: 20px; accent-color: var(--black); 
     .mobile-toggle { display: none; }
     .desktop-nav { display: block; }
     
+    /* CORRECTION: Desktop Images Grid Alignment */
     .product-grid { grid-template-columns: repeat(3, 1fr); gap: 30px; }
+    .product-image { aspect-ratio: 3/4; } /* Ensures consistent height on desktop */
+    
     .footer-links { grid-template-columns: repeat(4, 1fr); }
     .category-grid { grid-template-columns: repeat(3, 1fr); }
     
@@ -499,11 +510,4 @@ table { width: 100%; border-collapse: collapse; }
     overflow-x: auto;
     width: 100%;
     display: block;
-}
-/* Success State for Add Button */
-.btn-success {
-    background-color: #27ae60 !important; /* Green */
-    border-color: #27ae60 !important;
-    color: white !important;
-    transition: background-color 0.3s ease;
 }
