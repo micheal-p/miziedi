@@ -1,24 +1,19 @@
 <?php
 namespace Miziedi\Models;
-
 use Database;
+use PDO;
 
 class Category {
-    private $collection;
-
-    public function __construct() {
-        $this->collection = Database::getInstance()->getDb()->categories;
-    }
+    private $pdo;
+    public function __construct() { $this->pdo = Database::getInstance()->getPdo(); }
 
     public function getAll() {
-        return $this->collection->find()->toArray();
+        $stmt = $this->pdo->query("SELECT * FROM categories");
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
     public function create($name, $slug) {
-        return $this->collection->insertOne([
-            'name' => $name, 
-            'slug' => $slug,
-            'created_at' => new \MongoDB\BSON\UTCDateTime()
-        ]);
+        $stmt = $this->pdo->prepare("INSERT INTO categories (name, slug) VALUES (?, ?)");
+        $stmt->execute([$name, $slug]);
     }
 }
