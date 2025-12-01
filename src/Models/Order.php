@@ -2,36 +2,77 @@
 namespace Miziedi\Models;
 
 use Database;
-use MongoDB\BSON\ObjectId;
+use PDO;
 
 class Order {
-    private $collection;
+    private $pdo;
 
     public function __construct() {
-        $this->collection = Database::getInstance()->getDb()->orders;
+        $this->pdo = Database::getInstance()->getPdo();
     }
 
     public function create($data) {
-        return $this->collection->insertOne($data);
+        $sql = "INSERT INTO orders (
+            invoice_number, customer_info, items, subtotal, delivery_fee, 
+            tax_label, total_amount, status, paystack_reference, history, created_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())";
+
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute([
+            $data['invoice_number'],
+            json_encode($data['customer']),
+            json_encode($data['items']),
+            $data['subtotal'],
+            $data['delivery_fee'],
+            $data['tax_label'],
+            $data['total_amount'],
+            $data['status'],
+            $data['paystack_reference'],
+            json_encode($data['history'])
+        ]);
     }
 
-    public function getByInvoice($invoiceNumber) {
-        return $this->collection->findOne(['invoice_number' => $invoiceNumber]);
+    public function getByInvoice($invoice) {
+        $stmt = $this->pdo->prepare("SELECT * FROM orders WHERE invoice_number = ?");
+        $stmt->execute([$invoice]);
+        $order = $stmt->fetch();
+        return $order ? $this->normalize($order) : null;
     }
 
     public function getAll() {
-        return $this->collection->find([], ['sort' => ['created_at' => -1]])->toArray();
+        $stmt = $this->pdo->query("SELECT * FROM orders ORDER BY created_at DESC");
+        $orders = $stmt->fetchAll();
+        return array_map([$this, 'normalize'], $orders);
     }
 
     public function updateStatus($id, $status, $note = '') {
-        $update = ['$set' => ['status' => $status]];
-        if ($note) {
-            $update['$push'] = ['history' => ['status' => $status, 'note' => $note, 'date' => new \MongoDB\BSON\UTCDateTime()]];
-        }
+        // 1. Fetch current history
+        $order = $this->getById($id);
+        $history = $order['history'] ?? [];
+        $history[] = ['status' => $status, 'note' => $note, 'date' => date('Y-m-d H:i:s')];
+
+        // 2. Update
+        $sql = "UPDATE orders SET status = ?, history = ? WHERE id = ?";
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute([$status, json_encode($history), $id]);
+    }
+
+    public function getById($id) {
+        $stmt = $this->pdo->prepare("SELECT * FROM orders WHERE id = ?");
+        $stmt->execute([$id]);
+        $order = $stmt->fetch();
+        return $order ? $this->normalize($order) : null;
+    }
+
+    private function normalize($row) {
+        if (!$row) return null;
+        $row['_id'] = $row['id'];
+        $row['customer'] = json_decode($row['customer_info'], true);
+        $row['items'] = json_decode($row['items'], true);
+        $row['history'] = json_decode($row['history'], true);
         
-        return $this->collection->updateOne(
-            ['_id' => new ObjectId($id)],
-            $update
-        );
+        // Convert SQL datetime string to DateTime object for Views ->format()
+        $row['created_at'] = new \DateTime($row['created_at']); 
+        return $row;
     }
 }
