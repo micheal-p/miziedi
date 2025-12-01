@@ -28,7 +28,7 @@
                         <div class="cart-details">
                             <div class="cart-header">
                                 <h3 class="item-title"><?= htmlspecialchars($title) ?></h3>
-                               <div class="item-price" id="price-display-<?= $cartKey ?>">₦<?= number_format($item['total']) ?></div>
+                                <div class="item-price" id="price-display-<?= $cartKey ?>">₦<?= number_format($item['total']) ?></div>
                             </div>
 
                             <div class="item-meta">
@@ -41,12 +41,10 @@
 
                             <div class="cart-actions-row">
                                 <div class="qty-pill small">
-    <button id="btn-minus-<?= $cartKey ?>" onclick="updateCartQty('<?= $cartKey ?>', '<?= $product['_id'] ?>', -1, <?= $qty ?>)" class="qty-btn">−</button>
-
-    <span id="qty-display-<?= $cartKey ?>" class="qty-val"><?= $qty ?></span>
-
-    <button id="btn-plus-<?= $cartKey ?>" onclick="updateCartQty('<?= $cartKey ?>', '<?= $product['_id'] ?>', 1, <?= $qty ?>)" class="qty-btn">+</button>
-</div>
+                                    <button id="btn-minus-<?= $cartKey ?>" onclick="updateCartQty('<?= $cartKey ?>', '<?= $product['_id'] ?>', -1, <?= $qty ?>)" class="qty-btn">−</button>
+                                    <span id="qty-display-<?= $cartKey ?>" class="qty-val"><?= $qty ?></span>
+                                    <button id="btn-plus-<?= $cartKey ?>" onclick="updateCartQty('<?= $cartKey ?>', '<?= $product['_id'] ?>', 1, <?= $qty ?>)" class="qty-btn">+</button>
+                                </div>
 
                                 <form action="/cart/remove" method="POST">
                                     <input type="hidden" name="cart_key" value="<?= $cartKey ?>">
@@ -141,15 +139,14 @@
 </style>
 
 <script>
-// AJAX Update for Quantity (Instant Calculation)
+// AJAX Update for Quantity
 async function updateCartQty(cartKey, productId, change, currentQty) {
-    // Prevent reducing to 0 (use remove button instead)
-    if (currentQty + change < 1) return;
+    if (currentQty + change < 1) return; // Prevent 0
 
     const formData = new FormData();
     formData.append('product_id', productId);
     
-    // Extract size from cart key if present
+    // We extract the size from the key (ID_SIZE)
     const parts = cartKey.split('_');
     if(parts[1]) formData.append('size', parts[1]);
     
@@ -184,7 +181,6 @@ async function updateCartQty(cartKey, productId, change, currentQty) {
             }
 
             // 5. Update Buttons OnClick (To prevent stale data)
-            // We update the currentQty parameter for the next click
             const btnMinus = document.getElementById('btn-minus-' + cartKey);
             const btnPlus = document.getElementById('btn-plus-' + cartKey);
             
