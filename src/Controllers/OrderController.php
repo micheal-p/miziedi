@@ -3,7 +3,7 @@ namespace Miziedi\Controllers;
 
 use Miziedi\Models\Product;
 use Miziedi\Models\Order;
-use Database;
+use Database; // Ensure Database is accessible
 
 class OrderController {
 
@@ -67,19 +67,19 @@ class OrderController {
                 $_SESSION['cart'][$cartKey] = $qty;
             }
 
-            // Prevent negative quantity (Remove if 0 or less)
+            // Remove item if quantity is 0 or less
             if ($_SESSION['cart'][$cartKey] <= 0) {
                 unset($_SESSION['cart'][$cartKey]);
             }
         }
 
-        // --- RECALCULATION LOGIC START ---
+        // --- RECALCULATION LOGIC (AJAX SUPPORT) ---
         $productModel = new Product();
         $globalSubtotal = 0;
         $currentItemTotal = 0;
         $currentQty = 0;
 
-        // Loop to calculate new totals
+        // Recalculate totals based on session
         foreach ($_SESSION['cart'] as $key => $q) {
             $parts = explode('_', $key);
             $pid = $parts[0];
@@ -88,7 +88,7 @@ class OrderController {
                 $lineTotal = $prod['price'] * $q;
                 $globalSubtotal += $lineTotal;
 
-                // If this is the item we just updated
+                // Data for the specific item changed
                 if (isset($cartKey) && $key === $cartKey) {
                     $currentItemTotal = $lineTotal;
                     $currentQty = $q;
@@ -98,19 +98,18 @@ class OrderController {
 
         $totalItems = array_sum($_SESSION['cart']);
 
-        // Check if AJAX Request (Fetch) - Return JSON
+        // Return JSON if AJAX request
         if (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) == 'xmlhttprequest') {
             header('Content-Type: application/json');
             echo json_encode([
                 'status' => 'success', 
                 'cartCount' => $totalItems,
-                'itemTotal' => number_format($currentItemTotal),   // New Item Total
-                'globalSubtotal' => number_format($globalSubtotal), // New Subtotal
+                'itemTotal' => number_format($currentItemTotal),
+                'globalSubtotal' => number_format($globalSubtotal),
                 'newQty' => $currentQty
             ]);
             exit;
         }
-        // --- RECALCULATION LOGIC END ---
 
         // Standard Fallback (Redirect)
         header('Location: /cart');
@@ -141,7 +140,6 @@ class OrderController {
     public function createOrder() {
         header('Content-Type: application/json');
         
-        // 1. Get Input
         $input = json_decode(file_get_contents('php://input'), true);
         $reference = $input['reference'] ?? null;
         $customer = $input['customer'] ?? [];
@@ -150,7 +148,7 @@ class OrderController {
             jsonResponse(['error' => 'Invalid request or empty cart'], 400);
         }
 
-        // 2. Verify Transaction with Paystack API
+        // 1. Verify Transaction with Paystack API
         $secretKey = $_ENV['PAYSTACK_SECRET_KEY'];
         $url = "https://api.paystack.co/transaction/verify/" . rawurlencode($reference);
 
@@ -172,14 +170,14 @@ class OrderController {
 
         $result = json_decode($response, true);
 
-        // 3. Check Status
         if (!$result || !isset($result['data']['status']) || $result['data']['status'] !== 'success') {
             jsonResponse(['error' => 'Payment verification failed (Invalid Status)'], 400);
         }
 
-        // 4. Re-calculate Total & Build Order Items (Security Step)
+        // 2. Prepare Order Items & Stock Update
         $productModel = new Product();
-        $db = Database::getInstance()->getDb(); // Connect for stock update
+        $pdo = \Database::getInstance()->getPdo(); // Get MySQL PDO connection
+        
         $items = [];
         $subtotal = 0;
 
@@ -193,45 +191,40 @@ class OrderController {
             if ($product) {
                 $price = (float)$product['price'];
                 
-                // Handle DB field differences (name vs title, image_url vs image)
-                $title = $product['name'] ?? $product['title'] ?? 'Untitled Product';
-                $image = $product['image_url'] ?? $product['image'] ?? '/assets/images/logo.svg';
-
                 $items[] = [
                     'product_id' => $id,
-                    'title' => $title,
+                    'title' => $product['name'] ?? $product['title'], // Handle name variation
                     'size' => $size,
                     'price' => $price,
                     'qty' => $qty,
-                    'image' => $image
+                    'image' => $product['image_url'] ?? '/assets/images/logo.svg'
                 ];
                 $subtotal += $price * $qty;
 
-                // CORRECTION: Decrement Stock
-                $db->products->updateOne(
-                    ['_id' => new \MongoDB\BSON\ObjectId($id)],
-                    ['$inc' => ['stock' => -1 * $qty]] // Subtract qty from stock
-                );
+                // SQL: Decrement Stock
+                $stmt = $pdo->prepare("UPDATE products SET stock = stock - ? WHERE id = ?");
+                $stmt->execute([$qty, $id]);
             }
         }
 
-        // 5. Add Dynamic Fees from DB
-        $settings = $db->settings->findOne(['type' => 'general']);
+        // 3. Fetch Fees from Settings (SQL)
+        $stmt = $pdo->prepare("SELECT * FROM settings WHERE type = 'general'");
+        $stmt->execute();
+        $settings = $stmt->fetch(\PDO::FETCH_ASSOC);
         
         $deliveryFee = $settings['delivery_fee'] ?? 10000; 
         $taxLabel = $settings['tax_label'] ?? 'TBD';
         
         $finalTotal = $subtotal + $deliveryFee;
 
-        // 6. SECURITY: Compare Paystack Amount vs Calculated Amount
-        $paystackAmount = $result['data']['amount'] / 100; // Kobo to NGN
+        // 4. Security Check
+        $paystackAmount = $result['data']['amount'] / 100; 
         
-        // Allow small floating point differences, but block major fraud
         if ($paystackAmount < $finalTotal) {
             jsonResponse(['error' => "Amount mismatch. Paid: $paystackAmount, Expected: $finalTotal"], 400);
         }
 
-        // 7. Create Order in DB
+        // 5. Create Order
         $invoiceNumber = 'INV-' . strtoupper(uniqid());
         $orderModel = new Order();
         
@@ -243,17 +236,16 @@ class OrderController {
             'delivery_fee' => $deliveryFee,
             'tax_label' => $taxLabel,
             'total_amount' => $finalTotal,
-            'status' => 'paid', // Verified by Paystack
+            'status' => 'paid', 
             'paystack_reference' => $reference,
-            'created_at' => new \MongoDB\BSON\UTCDateTime(),
             'history' => [
-                ['status' => 'paid', 'note' => 'Payment verified via Paystack', 'date' => new \MongoDB\BSON\UTCDateTime()]
+                ['status' => 'paid', 'note' => 'Payment verified via Paystack', 'date' => date('Y-m-d H:i:s')]
             ]
         ];
 
         $orderModel->create($orderData);
 
-        // 8. Clear Cart & Success
+        // 6. Finish
         unset($_SESSION['cart']);
 
         jsonResponse(['message' => 'Order created', 'invoice_number' => $invoiceNumber]);
@@ -271,7 +263,6 @@ class OrderController {
             exit();
         }
 
-        // Optional: Handle specific webhook events here
         http_response_code(200);
     }
 
@@ -291,23 +282,27 @@ class OrderController {
         }
 
         $orderModel = new Order();
-        $ordersCursor = $orderModel->getAll();
+        $ordersRaw = $orderModel->getAll();
 
-        // CORRECTION: Clean Data for JSON output to avoid JS errors
+        // Clean Data for JSON output (MySQL version)
         $cleanOrders = [];
-        foreach ($ordersCursor as $order) {
-            // Format Date safely
+        foreach ($ordersRaw as $order) {
+            // Date format
             $date = 'N/A';
-            if (isset($order['created_at']) && $order['created_at'] instanceof \MongoDB\BSON\UTCDateTime) {
-                $date = $order['created_at']->toDateTime()->format('M d, Y h:i A');
+            if (isset($order['created_at']) && $order['created_at'] instanceof \DateTime) {
+                $date = $order['created_at']->format('M d, Y h:i A');
+            } elseif (is_string($order['created_at'])) {
+                $date = date('M d, Y h:i A', strtotime($order['created_at']));
             }
 
-            $id = (string)$order['_id'];
+            // Handle JSON Columns from SQL (items, customer)
+            // Model usually handles this, but we ensure array format here
+            $items = is_string($order['items']) ? json_decode($order['items'], true) : $order['items'];
+            $customer = is_string($order['customer_info']) ? json_decode($order['customer_info'], true) : ($order['customer'] ?? []);
 
-            // Clean Items
             $cleanItems = [];
-            if (isset($order['items']) && (is_array($order['items']) || is_object($order['items']))) {
-                foreach ($order['items'] as $item) {
+            if (is_array($items)) {
+                foreach ($items as $item) {
                     $cleanItems[] = [
                         'title' => $item['title'] ?? $item['name'] ?? 'Unknown Item',
                         'qty'   => $item['qty'] ?? 1,
@@ -319,9 +314,9 @@ class OrderController {
 
             // Build clean structure
             $cleanOrders[] = [
-                '_id' => ['$oid' => $id],
+                '_id' => ['$oid' => $order['id']], // Maintain structure for frontend compatibility
                 'invoice_number' => $order['invoice_number'] ?? 'N/A',
-                'customer' => $order['customer'] ?? ['name' => 'Guest', 'phone' => '', 'email' => '', 'address' => ''],
+                'customer' => $customer ?? ['name' => 'Guest', 'phone' => ''],
                 'total_amount' => $order['total_amount'] ?? 0,
                 'status' => $order['status'] ?? 'pending',
                 'items' => $cleanItems,
