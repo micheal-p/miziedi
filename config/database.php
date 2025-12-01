@@ -1,27 +1,34 @@
 <?php
-
 require_once __DIR__ . '/../vendor/autoload.php';
 
-use MongoDB\Client;
 use Dotenv\Dotenv;
 
 class Database {
     private static $instance = null;
-    private $client;
-    private $database;
+    private $pdo;
 
     private function __construct() {
-        // Load .env variables
+        // Load .env
         $dotenv = Dotenv::createImmutable(__DIR__ . '/../');
-        $dotenv->load();
+        $dotenv->safeLoad();
 
-        $uri = $_ENV['MONGODB_URI'];
-        $dbName = $_ENV['MONGODB_DB'];
+        $host = $_ENV['DB_HOST'];
+        $db   = $_ENV['DB_NAME'];
+        $user = $_ENV['DB_USER'];
+        $pass = $_ENV['DB_PASS'];
+        $charset = 'utf8mb4';
+
+        $dsn = "mysql:host=$host;dbname=$db;charset=$charset";
+        $options = [
+            PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
+            PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+            PDO::ATTR_EMULATE_PREPARES   => false,
+        ];
 
         try {
-            $this->client = new Client($uri);
-            $this->database = $this->client->selectDatabase($dbName);
-        } catch (Exception $e) {
+            $this->pdo = new PDO($dsn, $user, $pass, $options);
+        } catch (\PDOException $e) {
+            // In production, log this instead of printing
             die("Database Connection Failed: " . $e->getMessage());
         }
     }
@@ -33,7 +40,7 @@ class Database {
         return self::$instance;
     }
 
-    public function getDb() {
-        return $this->database;
+    public function getPdo() {
+        return $this->pdo;
     }
 }
