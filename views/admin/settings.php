@@ -1,7 +1,9 @@
 <?php
-// Fetch current settings
-$db = \Database::getInstance()->getDb();
-$settings = $db->settings->findOne(['type' => 'general']) ?? [];
+// FIX: Use MySQL Connection (PDO) instead of MongoDB
+$pdo = \Database::getInstance()->getPdo();
+$stmt = $pdo->prepare("SELECT * FROM settings WHERE type = 'general'");
+$stmt->execute();
+$settings = $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
 ?>
 
 <div class="container" style="margin-top: 50px; margin-bottom: 80px;">
