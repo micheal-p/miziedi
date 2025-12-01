@@ -2,7 +2,7 @@
 namespace Miziedi\Controllers;
 
 use Miziedi\Models\Category;
-use Database; // Ensure Database is accessible
+use Database;
 
 class CategoryController {
     
@@ -51,12 +51,9 @@ class CategoryController {
         // If you want to update slug too, you'd need to update all products using that slug.
         // For now, we just update the display name.
         
-        $collection = \Database::getInstance()->getDb()->categories;
-        
-        $result = $collection->updateOne(
-            ['_id' => new \MongoDB\BSON\ObjectId($id)],
-            ['$set' => ['name' => $name]]
-        );
+        $pdo = \Database::getInstance()->getPdo();
+        $stmt = $pdo->prepare("UPDATE categories SET name = ? WHERE id = ?");
+        $stmt->execute([$name, $id]);
 
         jsonResponse(['message' => 'Category updated']);
     }
